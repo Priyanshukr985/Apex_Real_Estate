@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: apex-admin-site
+    name: apex-real-estate-priyanshu
     runtime: python
     plan: free
     region: singapore
