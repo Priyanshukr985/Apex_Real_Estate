@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead #{{ enquiry.id }} | APEXHOMZ Admin</title>
+  <link rel="stylesheet" href="{{ url_for('admin_assets', filename='admin.css') }}">
+</head>
+
+<body class="admin-body admin-shell">
+  <aside class="admin-sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">A</div>
+      <div>
+        <strong>APEXHOMZ</strong>
+        <span>Admin Console</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('admin_dashboard') }}" class="nav-item">
+        <span class="nav-icon">O</span>
+        <span>Overview</span>
+      </a>
+      <a href="{{ url_for('admin_dashboard') }}#lead-list" class="nav-item">
+        <span class="nav-icon">L</span>
+        <span>Lead Queue</span>
+      </a>
+      <a href="{{ url_for('admin_enquiry_detail', enquiry_id=enquiry.id) }}" class="nav-item active">
+        <span class="nav-icon">D</span>
+        <span>Lead Detail</span>
+      </a>
+      <a href="{{ url_for('admin_logout') }}" class="nav-item">
+        <span class="nav-icon">X</span>
+        <span>Logout</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-card">
+      <p class="eyebrow">Current Lead</p>
+      <strong>{{ enquiry.full_name }}</strong>
+      <span>{{ enquiry.phone_number }}</span>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <header class="dashboard-topbar">
+      <div>
+        <p class="eyebrow">Lead Detail</p>
+        <h1>{{ enquiry.full_name }}</h1>
+        <p class="topbar-subtitle">Review the enquiry, update its status, keep internal notes, and return to the dashboard whenever you need.</p>
+      </div>
+      <div class="topbar-actions">
+        <a href="{{ url_for('admin_dashboard') }}" class="ghost-btn">Back to Dashboard</a>
+        <a href="{{ url_for('admin_logout') }}" class="primary-link-btn">Logout</a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <section class="flash-stack">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+    {% endwith %}
+
+    <section class="detail-grid">
+      <article class="panel detail-card">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Lead Information</p>
+            <h2>Contact And Booking Details</h2>
+          </div>
+          <span class="pill pill-{{ enquiry.status }}">{{ enquiry.status }}</span>
+        </div>
+
+        <dl class="detail-list">
+          <div><dt>Phone</dt><dd>{{ enquiry.phone_number }}</dd></div>
+          <div><dt>Email</dt><dd>{{ enquiry.email_address or 'No email provided' }}</dd></div>
+          <div><dt>Apartment Interest</dt><dd>{{ enquiry.apartment_interest or 'Not selected' }}</dd></div>
+          <div><dt>Visit Date</dt><dd>{{ enquiry.preferred_visit_date | display_date }}</dd></div>
+          <div><dt>Source</dt><dd>{{ enquiry.source }}</dd></div>
+          <div><dt>Created</dt><dd>{{ enquiry.created_at | display_datetime }}</dd></div>
+          <div><dt>Updated</dt><dd>{% if enquiry.updated_at %}{{ enquiry.updated_at | display_datetime }}{% else %}Not updated yet{% endif %}</dd></div>
+          <div><dt>Status</dt><dd>{{ enquiry.status }}</dd></div>
+        </dl>
+
+        <div class="message-block">
+          <h3>Lead Message</h3>
+          <p>{{ enquiry.message or 'No message provided by the user.' }}</p>
+        </div>
+      </article>
+
+      <article class="panel detail-card">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Actions</p>
+            <h2>Update This Lead</h2>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('update_enquiry_status', enquiry_id=enquiry.id) }}" class="admin-form compact-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="status">Lead Status</label>
+          <select id="status" name="status">
+            <option value="new" {% if enquiry.status == 'new' %}selected{% endif %}>New</option>
+            <option value="contacted" {% if enquiry.status == 'contacted' %}selected{% endif %}>Contacted</option>
+            <option value="visited" {% if enquiry.status == 'visited' %}selected{% endif %}>Visited</option>
+            <option value="closed" {% if enquiry.status == 'closed' %}selected{% endif %}>Closed</option>
+          </select>
+          <button type="submit">Update Status</button>
+        </form>
+
+        <form method="post" action="{{ url_for('update_enquiry_notes', enquiry_id=enquiry.id) }}" class="admin-form compact-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="notes">Internal Notes</label>
+          <textarea id="notes" name="notes" rows="8" placeholder="Add follow-up notes, call updates, budget, meeting details...">{{ enquiry.notes or '' }}</textarea>
+          <button type="submit">Save Notes</button>
+        </form>
+
+        <form method="post" action="{{ url_for('delete_enquiry', enquiry_id=enquiry.id) }}" onsubmit="return confirm('Delete this lead permanently?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="danger-btn">Delete Lead</button>
+        </form>
+      </article>
+    </section>
+  </main>
+</body>
+
+</html>

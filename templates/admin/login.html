@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login | APEXHOMZ</title>
+  <link rel="stylesheet" href="{{ url_for('admin_assets', filename='admin.css') }}">
+</head>
+
+<body class="admin-body admin-login-body">
+  <main class="login-shell">
+    <div class="login-shell-grid">
+      <section class="login-showcase">
+        <p class="eyebrow">Admin Workspace</p>
+        <h1>Manage leads with a cleaner daily workflow.</h1>
+        <p class="muted">Review enquiries, update follow-ups, save notes, and export the complete lead pipeline from one organized place.</p>
+
+        <div class="login-showcase-grid">
+          <article class="showcase-card">
+            <strong>Lead Queue</strong>
+            <span>Track fresh website enquiries without missing callbacks.</span>
+          </article>
+          <article class="showcase-card">
+            <strong>Status Updates</strong>
+            <span>Move leads from new to closed with quick dashboard actions.</span>
+          </article>
+          <article class="showcase-card">
+            <strong>Internal Notes</strong>
+            <span>Keep visit details, budget notes, and conversations in one place.</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="login-card">
+        <p class="eyebrow">Private Access</p>
+        <h1>Admin Login</h1>
+        <p class="muted">This panel is hidden from the public website and only available to authorized admins.</p>
+        <div class="login-feature-list">
+          <span class="login-feature">Lead tracking</span>
+          <span class="login-feature">Notes & follow-up</span>
+          <span class="login-feature">CSV export</span>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="post" class="admin-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" placeholder="Enter username" required autofocus>
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" placeholder="Enter password" required>
+
+          <button type="submit">Sign In</button>
+        </form>
+        <p class="login-footnote">Use your admin credentials to manage fresh enquiries, update statuses, and track conversations.</p>
+      </section>
+    </div>
+  </main>
+</body>
+
+</html>

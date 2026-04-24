@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: apex-admin-site
+    runtime: python
+    plan: starter
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    autoDeploy: true
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: STRICT_SECURITY
+        value: "1"
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: DATABASE_PATH
+        value: /var/data/enquiries.db
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
