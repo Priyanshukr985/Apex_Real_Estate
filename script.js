@@ -68,8 +68,8 @@ document.querySelectorAll('.plan-tab').forEach(tab => {
 
 /* ===== IMAGE FALLBACKS ===== */
 const defaultImageFallbacks = [
-  ['/assets/images/listing-3-house.jpg', '/assets/images_2/3.jpeg'],
-  ['/assets/images_2/3.jpeg', '/assets/images/listing-2-house.jpg']
+  ['/assets/images/listing-3-house.jpg', '/assets/images_2/listing_4.jpeg'],
+  ['/assets/images_2/listing_4.jpeg', '/assets/images/listing-2-house.jpg']
 ];
 
 document.querySelectorAll('img').forEach((img) => {
