@@ -66,6 +66,29 @@ document.querySelectorAll('.plan-tab').forEach(tab => {
   });
 });
 
+/* ===== IMAGE FALLBACKS ===== */
+const defaultImageFallbacks = [
+  ['/assets/images/listing-3-house.jpg', '/assets/images_2/3.jpeg'],
+  ['/assets/images_2/3.jpeg', '/assets/images/listing-2-house.jpg']
+];
+
+document.querySelectorAll('img').forEach((img) => {
+  img.addEventListener('error', () => {
+    if (img.dataset.fallbackApplied === 'true') return;
+
+    const currentPath = new URL(img.currentSrc || img.src, window.location.origin).pathname;
+    const mappedFallback = defaultImageFallbacks.find(([source]) => source === currentPath)?.[1];
+    const typeFallback = img.alt.toLowerCase().includes('floor')
+      ? '/assets/images/listing-2-floor.jpg'
+      : '/assets/images/listing-2-house.jpg';
+    const fallbackSrc = img.dataset.fallbackSrc || mappedFallback || typeFallback;
+
+    if (!fallbackSrc || fallbackSrc === currentPath) return;
+    img.dataset.fallbackApplied = 'true';
+    img.src = fallbackSrc;
+  });
+});
+
 /* ===== FORM VALIDATION & SUBMIT ===== */
 const form = document.getElementById('enquiryForm');
 const submitBtn = document.getElementById('submitBtn');
