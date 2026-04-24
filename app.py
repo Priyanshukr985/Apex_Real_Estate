@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import psycopg
 from flask import (
     Flask,
     flash,
@@ -25,15 +26,18 @@ from flask import (
     session,
     url_for,
 )
+from psycopg.rows import dict_row
 from werkzeug.security import check_password_hash
 
 
 BASE_DIR = Path(__file__).resolve().parent
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 DB_PATH = Path(
     os.environ.get("DATABASE_PATH")
     or os.environ.get("DB_PATH")
     or (BASE_DIR / "enquiries.db")
 ).resolve()
+USING_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 PHONE_PATTERN = re.compile(r"^\+?[0-9()\-\s.]{10,20}$")
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 INSECURE_SECRET_KEY = "change-this-secret-key"
@@ -69,50 +73,81 @@ except ZoneInfoNotFoundError:
     DISPLAY_TIMEZONE = None
 
 
-def get_connection() -> sqlite3.Connection:
+def get_connection() -> sqlite3.Connection | psycopg.Connection:
+    if USING_POSTGRES:
+        return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     return connection
 
 
+def db_query(query: str, params: tuple[Any, ...] = ()) -> str:
+    if USING_POSTGRES:
+        return query.replace("?", "%s")
+    return query
+
+
 def init_db() -> None:
     with get_connection() as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS enquiries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                full_name TEXT NOT NULL,
-                phone_number TEXT NOT NULL,
-                email_address TEXT,
-                apartment_interest TEXT,
-                preferred_visit_date TEXT,
-                message TEXT,
-                notes TEXT,
-                source TEXT NOT NULL DEFAULT 'website_form',
-                status TEXT NOT NULL DEFAULT 'new',
-                created_at TEXT NOT NULL,
-                updated_at TEXT
-            )
-            """
-        )
-        existing_columns = {
-            row["name"] for row in connection.execute("PRAGMA table_info(enquiries)")
-        }
-        if "notes" not in existing_columns:
-            connection.execute("ALTER TABLE enquiries ADD COLUMN notes TEXT")
-        if "source" not in existing_columns:
+        if USING_POSTGRES:
             connection.execute(
-                "ALTER TABLE enquiries ADD COLUMN source TEXT NOT NULL DEFAULT 'website_form'"
+                """
+                CREATE TABLE IF NOT EXISTS enquiries (
+                    id SERIAL PRIMARY KEY,
+                    full_name TEXT NOT NULL,
+                    phone_number TEXT NOT NULL,
+                    email_address TEXT,
+                    apartment_interest TEXT,
+                    preferred_visit_date TEXT,
+                    message TEXT,
+                    notes TEXT,
+                    source TEXT NOT NULL DEFAULT 'website_form',
+                    status TEXT NOT NULL DEFAULT 'new',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT
+                )
+                """
             )
-        if "updated_at" not in existing_columns:
-            connection.execute("ALTER TABLE enquiries ADD COLUMN updated_at TEXT")
+        else:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS enquiries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    full_name TEXT NOT NULL,
+                    phone_number TEXT NOT NULL,
+                    email_address TEXT,
+                    apartment_interest TEXT,
+                    preferred_visit_date TEXT,
+                    message TEXT,
+                    notes TEXT,
+                    source TEXT NOT NULL DEFAULT 'website_form',
+                    status TEXT NOT NULL DEFAULT 'new',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT
+                )
+                """
+            )
+            existing_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(enquiries)")
+            }
+            if "notes" not in existing_columns:
+                connection.execute("ALTER TABLE enquiries ADD COLUMN notes TEXT")
+            if "source" not in existing_columns:
+                connection.execute(
+                    "ALTER TABLE enquiries ADD COLUMN source TEXT NOT NULL DEFAULT 'website_form'"
+                )
+            if "updated_at" not in existing_columns:
+                connection.execute("ALTER TABLE enquiries ADD COLUMN updated_at TEXT")
+
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_enquiries_status ON enquiries(status)"
         )
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_enquiries_created_at ON enquiries(created_at)"
         )
+        connection.commit()
 
 
 def normalize_text(value: Any) -> str:
@@ -264,16 +299,18 @@ def verify_admin_password(password: str) -> bool:
     return False
 
 
-def get_enquiry_or_404(enquiry_id: int) -> sqlite3.Row:
+def get_enquiry_or_404(enquiry_id: int) -> Any:
     with get_connection() as connection:
         enquiry = connection.execute(
-            """
-            SELECT id, full_name, phone_number, email_address, apartment_interest,
-                   preferred_visit_date, message, notes, source, status,
-                   created_at, updated_at
-            FROM enquiries
-            WHERE id = ?
-            """,
+            db_query(
+                """
+                SELECT id, full_name, phone_number, email_address, apartment_interest,
+                       preferred_visit_date, message, notes, source, status,
+                       created_at, updated_at
+                FROM enquiries
+                WHERE id = ?
+                """
+            ),
             (enquiry_id,),
         ).fetchone()
 
@@ -345,35 +382,60 @@ def create_enquiry() -> Any:
     created_at = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
     with get_connection() as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO enquiries (
-                full_name,
-                phone_number,
-                email_address,
-                apartment_interest,
-                preferred_visit_date,
-                message,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                cleaned["full_name"],
-                cleaned["phone_number"],
-                cleaned["email_address"],
-                cleaned["apartment_interest"],
-                cleaned["preferred_visit_date"],
-                cleaned["message"],
-                created_at,
-            ),
+        insert_params = (
+            cleaned["full_name"],
+            cleaned["phone_number"],
+            cleaned["email_address"],
+            cleaned["apartment_interest"],
+            cleaned["preferred_visit_date"],
+            cleaned["message"],
+            created_at,
         )
+        if USING_POSTGRES:
+            cursor = connection.execute(
+                db_query(
+                    """
+                    INSERT INTO enquiries (
+                        full_name,
+                        phone_number,
+                        email_address,
+                        apartment_interest,
+                        preferred_visit_date,
+                        message,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
+                    """
+                ),
+                insert_params,
+            )
+            enquiry_id = cursor.fetchone()["id"]
+        else:
+            cursor = connection.execute(
+                db_query(
+                    """
+                    INSERT INTO enquiries (
+                        full_name,
+                        phone_number,
+                        email_address,
+                        apartment_interest,
+                        preferred_visit_date,
+                        message,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """
+                ),
+                insert_params,
+            )
+            enquiry_id = cursor.lastrowid
+        connection.commit()
 
     return (
         jsonify(
             {
                 "success": True,
                 "message": "Enquiry submitted successfully.",
-                "enquiry_id": cursor.lastrowid,
+                "enquiry_id": enquiry_id,
             }
         ),
         201,
@@ -434,10 +496,10 @@ def admin_dashboard() -> Any:
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
-    query += " ORDER BY datetime(created_at) DESC, id DESC"
+    query += " ORDER BY created_at DESC, id DESC"
 
     with get_connection() as connection:
-        enquiries = connection.execute(query, params).fetchall()
+        enquiries = connection.execute(db_query(query), params).fetchall()
         summary = connection.execute(
             """
             SELECT
@@ -471,9 +533,10 @@ def update_enquiry_status(enquiry_id: int) -> Any:
 
     with get_connection() as connection:
         connection.execute(
-            "UPDATE enquiries SET status = ?, updated_at = ? WHERE id = ?",
+            db_query("UPDATE enquiries SET status = ?, updated_at = ? WHERE id = ?"),
             (next_status, current_timestamp(), enquiry_id),
         )
+        connection.commit()
 
     flash("Lead status updated.", "success")
     return redirect(request.referrer or url_for("admin_dashboard"))
@@ -496,9 +559,10 @@ def update_enquiry_notes(enquiry_id: int) -> Any:
 
     with get_connection() as connection:
         connection.execute(
-            "UPDATE enquiries SET notes = ?, updated_at = ? WHERE id = ?",
+            db_query("UPDATE enquiries SET notes = ?, updated_at = ? WHERE id = ?"),
             (notes or None, current_timestamp(), enquiry_id),
         )
+        connection.commit()
 
     flash("Notes saved.", "success")
     return redirect(url_for("admin_enquiry_detail", enquiry_id=enquiry_id))
@@ -508,7 +572,8 @@ def update_enquiry_notes(enquiry_id: int) -> Any:
 @login_required
 def delete_enquiry(enquiry_id: int) -> Any:
     with get_connection() as connection:
-        connection.execute("DELETE FROM enquiries WHERE id = ?", (enquiry_id,))
+        connection.execute(db_query("DELETE FROM enquiries WHERE id = ?"), (enquiry_id,))
+        connection.commit()
 
     flash("Lead deleted.", "success")
     return redirect(url_for("admin_dashboard"))
@@ -519,13 +584,15 @@ def delete_enquiry(enquiry_id: int) -> Any:
 def export_enquiries() -> Any:
     with get_connection() as connection:
         enquiries = connection.execute(
-            """
-            SELECT id, full_name, phone_number, email_address, apartment_interest,
-                   preferred_visit_date, message, notes, source, status,
-                   created_at, updated_at
-            FROM enquiries
-            ORDER BY datetime(created_at) DESC, id DESC
-            """
+            db_query(
+                """
+                SELECT id, full_name, phone_number, email_address, apartment_interest,
+                       preferred_visit_date, message, notes, source, status,
+                       created_at, updated_at
+                FROM enquiries
+                ORDER BY created_at DESC, id DESC
+                """
+            )
         ).fetchall()
 
     output = io.StringIO()
