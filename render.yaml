@@ -2,7 +2,7 @@ services:
   - type: web
     name: apex-admin-site
     runtime: python
-    plan: starter
+    plan: free
     region: singapore
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
@@ -19,8 +19,4 @@ services:
       - key: SESSION_COOKIE_SECURE
         value: "1"
       - key: DATABASE_PATH
-        value: /var/data/enquiries.db
-    disk:
-      name: data
-      mountPath: /var/data
-      sizeGB: 1
+        value: /tmp/enquiries.db
