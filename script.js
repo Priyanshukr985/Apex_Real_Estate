@@ -24,7 +24,6 @@ window.addEventListener('scroll', () => {
 function setMobileMenuState(isOpen) {
   hamburger.classList.toggle('open', isOpen);
   navLinks.classList.toggle('open', isOpen);
-  document.body.style.overflow = isOpen ? 'hidden' : '';
 }
 
 hamburger.addEventListener('click', () => {
