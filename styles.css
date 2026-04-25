@@ -164,6 +164,13 @@ a {
   backdrop-filter: blur(10px);
 }
 
+#navbar.menu-open {
+  background: transparent;
+  box-shadow: none;
+  padding: 20px 0;
+  backdrop-filter: none;
+}
+
 .nav-container {
   max-width: var(--max-w);
   margin: 0 auto;
