@@ -319,7 +319,15 @@ document.querySelectorAll('[data-listing-slider]').forEach((slider) => {
     const activeSlide = slides[activeIndex];
     const activeImg = activeSlide?.querySelector('img');
     if (activeImg) {
-      openImageLightbox(activeImg.currentSrc || activeImg.src, activeImg.alt);
+      const slideImages = slides
+        .map((slide) => slide.querySelector('img'))
+        .filter(Boolean);
+      openImageLightbox(
+        activeImg.currentSrc || activeImg.src,
+        activeImg.alt,
+        slideImages,
+        activeIndex
+      );
     }
   });
 });
@@ -383,6 +391,19 @@ galleryImages.forEach((img, index) => {
 
 document.querySelectorAll('.listing-slide img, .overview-image-card img').forEach((img) => {
   img.addEventListener('click', () => {
+    const slider = img.closest('[data-listing-slider]');
+    if (slider) {
+      const slideImages = Array.from(slider.querySelectorAll('.listing-slide img'));
+      const imageIndex = slideImages.indexOf(img);
+      openImageLightbox(
+        img.currentSrc || img.src,
+        img.alt,
+        slideImages,
+        imageIndex
+      );
+      return;
+    }
+
     openImageLightbox(img.currentSrc || img.src, img.alt);
   });
 });
