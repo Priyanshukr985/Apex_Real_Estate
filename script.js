@@ -28,19 +28,6 @@ function setMobileMenuState(isOpen) {
 
 hamburger.addEventListener('click', () => {
   const isOpening = !navLinks.classList.contains('open');
-  const isMobileView = window.innerWidth <= 768;
-  const isAwayFromTop = window.scrollY > 40;
-
-  if (isOpening && isMobileView && isAwayFromTop) {
-    window.scrollTo({ top: 0, behavior: 'auto' });
-    navbar.classList.remove('scrolled');
-    updateActiveNav();
-    window.requestAnimationFrame(() => {
-      setMobileMenuState(true);
-    });
-    return;
-  }
-
   setMobileMenuState(isOpening);
 });
 
