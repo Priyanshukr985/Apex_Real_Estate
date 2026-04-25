@@ -33,10 +33,12 @@ hamburger.addEventListener('click', () => {
   const isAwayFromTop = window.scrollY > 40;
 
   if (isOpening && isMobileView && isAwayFromTop) {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    window.setTimeout(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    navbar.classList.remove('scrolled');
+    updateActiveNav();
+    window.requestAnimationFrame(() => {
       setMobileMenuState(true);
-    }, 450);
+    });
     return;
   }
 
